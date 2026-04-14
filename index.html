@@ -331,9 +331,7 @@
         (function() {
             // Функция для конвертации HTTP URL в HTTPS (если возможно)
             function fixUrl(url) {
-                // Если страница открыта по HTTPS, пробуем конвертировать HTTP в HTTPS
                 if (window.location.protocol === 'https:' && url.startsWith('http://')) {
-                    // Пробуем заменить на https
                     const httpsUrl = url.replace('http://', 'https://');
                     console.log(`Конвертируем URL: ${url} -> ${httpsUrl}`);
                     return httpsUrl;
@@ -371,7 +369,6 @@
                 { name: "Спас",           url: "http://zabava-htlive.cdn.ngenix.net/hls/CH_SPAS/video_800x450_avc1/variant.m3u8", logo: "icons/2141.png" }
             ];
 
-            // Конвертируем URL в зависимости от протокола страницы
             const channelsData = channelsDataRaw.map(ch => ({
                 ...ch,
                 url: fixUrl(ch.url)
@@ -387,18 +384,15 @@
             let hlsInstance = null;
             let currentChannel = null;
 
-            // Настройка звука на 100% при загрузке
             video.volume = 1.0;
             volumeSlider.value = 100;
 
-            // Регулятор громкости
             volumeSlider.addEventListener('input', (e) => {
                 const val = e.target.value / 100;
                 video.volume = val;
                 video.muted = false;
             });
 
-            // Полноэкранный режим
             function toggleFullscreen() {
                 if (!document.fullscreenElement) {
                     playerContainer.requestFullscreen().catch(err => {
@@ -493,12 +487,14 @@
                         video.muted = false;
                         await video.play();
                         console.log('Воспроизведение успешно запущено');
+                        showLoading(false); // Скрываем индикатор сразу после успешного запуска
                         
                     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                         video.src = streamUrl;
                         video.load();
                         video.muted = false;
                         await video.play();
+                        showLoading(false); // Скрываем индикатор сразу после успешного запуска
                     } else {
                         throw new Error('HLS не поддерживается браузером');
                     }
@@ -507,17 +503,14 @@
                     console.error('Ошибка:', err);
                     let errorMessage = 'Не удалось загрузить канал. ';
                     
-                    if (err.message.includes('Mixed Content') || streamUrl.includes('http://') && window.location.protocol === 'https:') {
+                    if (err.message.includes('Mixed Content') || (streamUrl.includes('http://') && window.location.protocol === 'https:')) {
                         errorMessage = 'Проблема: HTTPS страница пытается загрузить HTTP видео.\n\nРешение: Откройте страницу по адресу http:// (без буквы s) или используйте другой хостинг.';
                         alert(errorMessage);
                     } else {
                         errorMessage += 'Проверьте интернет соединение.';
                         alert(`Ошибка: ${err.message}\n\n${errorMessage}`);
                     }
-                    
                     showLoading(false);
-                } finally {
-                    setTimeout(() => showLoading(false), 1000);
                 }
             }
 
@@ -554,7 +547,6 @@
 
             renderChannels();
 
-            // Выводим предупреждение если страница на HTTPS
             if (window.location.protocol === 'https:') {
                 console.warn('ВНИМАНИЕ: Страница открыта по HTTPS, но видео потоки используют HTTP. Это может не работать из-за mixed content policy.');
                 console.warn('Рекомендуется открыть страницу по адресу http://' + window.location.host);
