@@ -63,7 +63,6 @@
             object-fit: contain;
         }
 
-        /* Кастомные элементы управления */
         .custom-controls {
             position: absolute;
             bottom: 0;
@@ -142,6 +141,9 @@
             z-index: 10;
             transition: opacity 0.3s;
             display: none;
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
         }
         
         .spinner {
@@ -244,6 +246,15 @@
             border: 2px solid #3a5a7a;
         }
 
+        .error-message {
+            background: rgba(255,0,0,0.3);
+            border: 1px solid rgba(255,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            max-width: 80%;
+        }
+
         @media (min-width: 1201px) {
             .channels-list { grid-template-columns: repeat(9, 1fr); gap: 15px; }
             .channel-logo, .logo-fallback { width: 70px; height: 70px; }
@@ -278,7 +289,6 @@
             .channels-list { grid-template-columns: repeat(2, 1fr); }
         }
 
-        /* Полноэкранный режим */
         .player-container:-webkit-full-screen {
             border-radius: 0;
         }
@@ -319,7 +329,19 @@
 
     <script>
         (function() {
-            const channelsData = [
+            // Функция для конвертации HTTP URL в HTTPS (если возможно)
+            function fixUrl(url) {
+                // Если страница открыта по HTTPS, пробуем конвертировать HTTP в HTTPS
+                if (window.location.protocol === 'https:' && url.startsWith('http://')) {
+                    // Пробуем заменить на https
+                    const httpsUrl = url.replace('http://', 'https://');
+                    console.log(`Конвертируем URL: ${url} -> ${httpsUrl}`);
+                    return httpsUrl;
+                }
+                return url;
+            }
+
+            const channelsDataRaw = [
                 { name: "Первый канал",   url: "http://zabava-htlive.cdn.ngenix.net/hls/CH_1TVSD/video_800x450_avc1/variant.m3u8", logo: "icons/146.png" },
                 { name: "Россия 1",       url: "http://zabava-htlive.cdn.ngenix.net/hls/CH_RUSSIA1/video_800x450_avc1/variant.m3u8", logo: "icons/711.png" },
                 { name: "НТВ",            url: "http://zabava-htlive.cdn.ngenix.net/hls/CH_NTV/video_800x450_avc1/variant.m3u8", logo: "icons/162.png" },
@@ -348,6 +370,12 @@
                 { name: "Россия К",       url: "http://zabava-htlive.cdn.ngenix.net/hls/CH_RUSSIAK/video_800x450_avc1/variant.m3u8", logo: "icons/187.png" },
                 { name: "Спас",           url: "http://zabava-htlive.cdn.ngenix.net/hls/CH_SPAS/video_800x450_avc1/variant.m3u8", logo: "icons/2141.png" }
             ];
+
+            // Конвертируем URL в зависимости от протокола страницы
+            const channelsData = channelsDataRaw.map(ch => ({
+                ...ch,
+                url: fixUrl(ch.url)
+            }));
 
             const video = document.getElementById('videoPlayer');
             const playerContainer = document.getElementById('playerContainer');
@@ -383,8 +411,23 @@
 
             fullscreenBtn.addEventListener('click', toggleFullscreen);
 
-            function showLoading(show) {
-                loadingIndicator.style.display = show ? 'flex' : 'none';
+            function showLoading(show, errorMsg = null) {
+                if (errorMsg) {
+                    loadingIndicator.innerHTML = `
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 15px;">⚠️</div>
+                            <div style="margin-bottom: 10px;">${errorMsg}</div>
+                            <div style="font-size: 12px; opacity: 0.7;">Попробуйте выбрать другой канал</div>
+                        </div>
+                    `;
+                    loadingIndicator.style.display = 'flex';
+                } else {
+                    loadingIndicator.innerHTML = `
+                        <div class="spinner"></div>
+                        <span>Загрузка канала...</span>
+                    `;
+                    loadingIndicator.style.display = show ? 'flex' : 'none';
+                }
             }
 
             function destroyHls() {
@@ -415,7 +458,7 @@
                 showLoading(true);
                 
                 const streamUrl = channel.url;
-                console.log(`Загружаем канал: ${channel.name}`);
+                console.log(`Загружаем канал: ${channel.name} | URL: ${streamUrl}`);
                 
                 try {
                     destroyHls();
@@ -431,7 +474,7 @@
                         hlsInstance.attachMedia(video);
                         
                         await new Promise((resolve, reject) => {
-                            const timeout = setTimeout(() => reject(new Error('Timeout')), 15000);
+                            const timeout = setTimeout(() => reject(new Error('Таймаут загрузки')), 20000);
                             
                             hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
                                 clearTimeout(timeout);
@@ -439,9 +482,10 @@
                             });
                             
                             hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+                                console.error('HLS Error:', data);
                                 if (data.fatal) {
                                     clearTimeout(timeout);
-                                    reject(data);
+                                    reject(new Error(data.details || 'Ошибка HLS'));
                                 }
                             });
                         });
@@ -456,14 +500,24 @@
                         video.muted = false;
                         await video.play();
                     } else {
-                        throw new Error('HLS не поддерживается');
+                        throw new Error('HLS не поддерживается браузером');
                     }
                     
                 } catch (err) {
                     console.error('Ошибка:', err);
-                    alert(`Не удалось загрузить "${channel.name}". Проверьте интернет.`);
-                } finally {
+                    let errorMessage = 'Не удалось загрузить канал. ';
+                    
+                    if (err.message.includes('Mixed Content') || streamUrl.includes('http://') && window.location.protocol === 'https:') {
+                        errorMessage = 'Проблема: HTTPS страница пытается загрузить HTTP видео.\n\nРешение: Откройте страницу по адресу http:// (без буквы s) или используйте другой хостинг.';
+                        alert(errorMessage);
+                    } else {
+                        errorMessage += 'Проверьте интернет соединение.';
+                        alert(`Ошибка: ${err.message}\n\n${errorMessage}`);
+                    }
+                    
                     showLoading(false);
+                } finally {
+                    setTimeout(() => showLoading(false), 1000);
                 }
             }
 
@@ -499,6 +553,12 @@
             }
 
             renderChannels();
+
+            // Выводим предупреждение если страница на HTTPS
+            if (window.location.protocol === 'https:') {
+                console.warn('ВНИМАНИЕ: Страница открыта по HTTPS, но видео потоки используют HTTP. Это может не работать из-за mixed content policy.');
+                console.warn('Рекомендуется открыть страницу по адресу http://' + window.location.host);
+            }
         })();
     </script>
 </body>
