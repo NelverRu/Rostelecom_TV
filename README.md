@@ -8,7 +8,7 @@
   
   <br>
   
-  <a href="https://nelverru.github.io/Rostelecom_TV">
+  <a href="https://rostelecomtv.vercel.app/">
     <img src="https://img.shields.io/badge/🔴_СМОТРЕТЬ_ОНЛАЙН-43B581?style=for-the-badge&logo=firefox&logoColor=white&labelColor=2d8c5a&width=300" alt="Смотреть онлайн" width="300">
   </a>
   
