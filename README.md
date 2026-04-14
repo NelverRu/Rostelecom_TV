@@ -7,7 +7,7 @@
   <p>Веб-плеер для просмотра 27-ми телеканалов от Ростелеком</p>
    
   <h3>
-    <a href="https://nelverru.github.io/Rostelecom_TV">
+    <a href="https://rostelecomtv.vercel.app">
       <img src="https://img.shields.io/badge/Смотреть_онлайн-43B581?style=for-the-badge&logo=firefox&logoColor=white" alt="Смотреть онлайн">
     </a>
     <a href="https://raw.githubusercontent.com/NelverRu/Rostelecom_TV/refs/heads/main/Rostelecom_TV.m3u8">
